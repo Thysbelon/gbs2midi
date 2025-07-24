@@ -1,0 +1,2 @@
+- Add a function to convert from vgm to songData
+- rewrite all of this in Zig?

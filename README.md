@@ -1,0 +1,22 @@
+# gbs2fur
+Convert GBS (Game Boy music file) to midi files.
+
+Please see [this video](https://www.youtube.com/watch?v=PLACEHOLDER) for a demonstration of what gbs2midi is capable of.
+
+The gbsplay executable must be in the same folder as the gbs2midi executable for the program to work.
+
+## Usage Tips
+
+Output midi files do not follow any tempo. To work with these files, I recommend that you open the midi files in a DAW and set the midi files to ignore the DAW's tempo.    
+Here is how to do that in Reaper:   
+1. Leave your Reaper project at the default BPM of 120
+2. Open the midi file in Reaper
+3. Select all midi items (e.g. by shift-clicking), open the right-click menu, Item settings > Set item timebase to time
+4. With all the midi items still selected: right-click > Source properties > OK > Ignore project tempo, use 120 BPM
+5. Now you can freely change the Reaper project's tempo, and add tempo change events, without affecting the speed of the midi. Set the project's tempo to a value that musically matches the midi file. You will likely need to do a lot of trial and error, and use BPM numbers with two decimal places.
+
+If, when editing the song, you notice that notes right next to eachother seem to be silencing eachother, try zooming in very closely; you'll likely see a very small overlap between the two notes. Remove this overlap so the notes will play properly.
+
+## Credits
+- This program uses [gbsplay](https://github.com/mmitch/gbsplay) to convert GBS files to a list of sound chip register writes, which my program then converts to a fur file.
+- [libsmf from sseq2mid](https://github.com/Thysbelon/sseq2mid), originally written by [loveemu](https://github.com/loveemu/loveemu-lab/tree/master/nds/sseq2mid/src).

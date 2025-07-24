@@ -1,0 +1,8 @@
+linux:
+gcc -I./libsmf/ -c libsmf/libsmfc.c
+gcc -I./libsmf/ -c libsmf/libsmfcx.c
+g++ -fpermissive -I./libsmf/ -o bin/gbs2midi main.cpp from_gbsplay.cpp to_midi.cpp libsmfc.o libsmfcx.o
+windows:
+x86_64-w64-mingw32-gcc -fpermissive -I./libsmf/ -c libsmf/libsmfc.c
+x86_64-w64-mingw32-gcc -fpermissive -I./libsmf/ -c libsmf/libsmfcx.c
+x86_64-w64-mingw32-g++ -fpermissive -I./libsmf/ -o bin/gbs2midi main.cpp from_gbsplay.cpp to_midi.cpp libsmfc.o libsmfcx.o

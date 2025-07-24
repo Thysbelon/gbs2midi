@@ -1,0 +1,11 @@
+*.exe
+*.o
+*.d
+*.gbs
+*.fur
+*.mid
+gbs2fur
+gbsplay
+bin/
+backup/
+temp/
