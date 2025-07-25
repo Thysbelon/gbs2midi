@@ -1,9 +1,6 @@
 /*
 This file contains the code that converts songData to a midi file.
 
-TODO: 
-- (low priority) fix wrong wave at the very beginning of KDL2 title and Link'sAwakeningNightmare(35). UPDATE: this affects more songs than I thought.
-
 info on sysex data structure:
 All wave data is stored in a single sysex message at the beginning of the song.
 The wave data consists of values from 0x00 to 0x0F.
@@ -349,7 +346,7 @@ bool songData2midi(std::vector<gb_reg_write>& songData, unsigned int gbTimeUnits
 	midiTicksPerSecondPointer = &midiTicksPerSecond;
 	gbTimeUnitsPerSecondPointer = &gbTimeUnitsPerSecond;
 	
-	std::set<std::array<std::pair<uint8_t,bool>, 32>> uniqueWavetables;
+	std::vector<std::array<std::pair<uint8_t,bool>, 32>> uniqueWavetables;
 	
 	//for (int i=0; i<4; i++){
 	//	smfInsertControl(midiFile, 0, i, i, SMF_CONTROL_VOLUME, 0); // prevent garbage noise from playing
@@ -432,9 +429,10 @@ bool songData2midi(std::vector<gb_reg_write>& songData, unsigned int gbTimeUnits
 					uint8_t curWavDAC = extractBitValueFromByte(registerValue, 7, 7);
 					if (curAPUstate.gb_wave_state.DAC_off_on.first == 0 && curWavDAC == 1 /* && curAPUstate.gb_wave_state.DAC_off_on.second*/) { // if the DAC was previously off and is now being turned on
 						// push curAPUstate.gb_wave_state.wavetable to uniqueWavetables
-						uniqueWavetables.insert(curAPUstate.gb_wave_state.wavetable.first);
+						if ((std::find(uniqueWavetables.begin(), uniqueWavetables.end(), curAPUstate.gb_wave_state.wavetable.first)) == uniqueWavetables.end()) // element is not in vector
+							uniqueWavetables.push_back(curAPUstate.gb_wave_state.wavetable.first);
 						// add index of current wave to CC21 at regWriteMidiTime
-						uint8_t wavetableIndex = std::distance(std::begin(uniqueWavetables), uniqueWavetables.find(curAPUstate.gb_wave_state.wavetable.first));
+						uint8_t wavetableIndex = std::distance(std::begin(uniqueWavetables), std::find(uniqueWavetables.begin(), uniqueWavetables.end(), curAPUstate.gb_wave_state.wavetable.first));
 						if (wavetableIndex != prevWavetableIndex) {
 							smfInsertControl(midiFile, regWriteMidiTime, 2, 2, 21, wavetableIndex); /* if there are more than 127 waves, this will break, but this is unlikely */
 							prevWavetableIndex = wavetableIndex;
