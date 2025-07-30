@@ -5,7 +5,7 @@ Convert GBS (Game Boy music file) to midi files.
 
 The gbsplay executable must be in the same folder as the gbs2midi executable for the program to work.
 
-The midi files exported by this program are meant to be used with my [LV2 synthesizer plugin Nelly GB](https://github.com/Thysbelon/Nelly-GB-synth), which converts the midi events back into Game Boy APU register writes and renders the audio using an emulated Game Boy APU.  
+The midi files exported by this program are meant to be used with my [LV2 and CLAP synthesizer plugin Nelly GB](https://github.com/Thysbelon/Nelly-GB-synth), which converts the midi events back into Game Boy APU register writes and renders the audio using an emulated Game Boy APU.  
 This makes it possible to play back and edit Game Boy music in a way that sounds accurate to the original.
 
 ## Usage Tips
@@ -24,6 +24,10 @@ Here is how to do that in Reaper:
 
 If, when editing the song, you notice that notes right next to eachother seem to be silencing eachother, try zooming in very closely; you'll likely see a very small overlap between the two notes. Remove this overlap so the notes will play properly.
 
+### Other
+
+[Please do not attempt to use FL Studio to edit the midi files output by gbs2midi](https://gist.github.com/Thysbelon/a69da7038e65023a29168d9ef449acda).
+
 ## Credits
-- This program uses [gbsplay](https://github.com/mmitch/gbsplay) to convert GBS files to a list of sound chip register writes, which my program then converts to a fur file.
+- This program uses [gbsplay](https://github.com/mmitch/gbsplay) to convert GBS files to a list of sound chip register writes, which my program then converts to a midi file.
 - [libsmf from sseq2mid](https://github.com/Thysbelon/sseq2mid), originally written by [loveemu](https://github.com/loveemu/loveemu-lab/tree/master/nds/sseq2mid/src).
