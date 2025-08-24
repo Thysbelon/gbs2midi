@@ -30,7 +30,7 @@ std::string progSuffix = ".exe";
 std::string progPrefix = "./";
 std::string progSuffix = "";
 #endif
-std::string gbsplayCmd = progPrefix+"gbsplay"+progSuffix+" -t "+ std::to_string(timeInSeconds) +" -o iodumper -- "+gbsFileName+" "+std::to_string(subsongNum)+" "+std::to_string(subsongNum);
+std::string gbsplayCmd = progPrefix+"gbsplay"+progSuffix+" -t "+ std::to_string(timeInSeconds) +" -o iodumper -- \""+gbsFileName+"\" "+std::to_string(subsongNum)+" "+std::to_string(subsongNum);
 printf("DEBUG: going to call popen(%s)\n", gbsplayCmd.c_str());
 FILE *gbsplayFile = popen(gbsplayCmd.c_str(), "r"); // https://stackoverflow.com/questions/125828/capturing-stdout-from-a-system-command-optimally
 char line[1024];
