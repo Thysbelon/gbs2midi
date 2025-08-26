@@ -357,7 +357,8 @@ bool songData2midi(std::vector<gb_reg_write>& songData, unsigned int gbTimeUnits
 	std::array<uint8_t,4> curPlayingMidiNote = {0xFF, 0xFF, 0xFF, 0xFF}; // The note number of the midi note that is currently playing. One entry for each channel. Used to end the current note, whatever it is. 0xFF means no notes are currently playing.
 	std::array<bool,4> legatoState = {false, false, false, false}; // legato mode is turned on whenever the GB does a pitch bend without retriggering the note, but the pitch bend goes beyond the range of a midi note. Legato mode means that when the Plugin is reading back the midi, it should read new notes as pitch changes with no trigger.
 	
-	uint8_t prevWavetableIndex=0xFF;
+	//uint8_t prevWavetableIndex=0xFF; // TODO: change waveTable index from a 7-bit CC to a 14-bit CC (Combine CC21 and CC53).
+	uint16_t prevWavetableIndex = 0xFFFF;
 
 	uint64_t midiTicksPassed=0;
 	std::array<bool,4> isDACon={true,true,true,true};
@@ -432,9 +433,19 @@ bool songData2midi(std::vector<gb_reg_write>& songData, unsigned int gbTimeUnits
 						if ((std::find(uniqueWavetables.begin(), uniqueWavetables.end(), curAPUstate.gb_wave_state.wavetable.first)) == uniqueWavetables.end()) // element is not in vector
 							uniqueWavetables.push_back(curAPUstate.gb_wave_state.wavetable.first);
 						// add index of current wave to CC21 at regWriteMidiTime
-						uint8_t wavetableIndex = std::distance(std::begin(uniqueWavetables), std::find(uniqueWavetables.begin(), uniqueWavetables.end(), curAPUstate.gb_wave_state.wavetable.first));
+						uint16_t wavetableIndex = std::distance(std::begin(uniqueWavetables), std::find(uniqueWavetables.begin(), uniqueWavetables.end(), curAPUstate.gb_wave_state.wavetable.first));
 						if (wavetableIndex != prevWavetableIndex) {
-							smfInsertControl(midiFile, regWriteMidiTime, 2, 2, 21, wavetableIndex); /* if there are more than 127 waves, this will break, but this is unlikely */
+							// NOTE: This change is incompatible with previous midis made for Nelly GB
+							uint8_t wavetableIndexMSB = (wavetableIndex & 0b11111110000000) >> 7;
+							uint8_t wavetableIndexLSB = wavetableIndex & 0x7F;
+							/*
+							printf("wavetableIndex: %04X\n", wavetableIndex);
+							printf("wavetableIndexMSB: %04X\n", wavetableIndexMSB);
+							printf("wavetableIndexLSB: %04X\n", wavetableIndexLSB);
+							*/
+							smfInsertControl(midiFile, regWriteMidiTime, 2, 2, 21, wavetableIndexMSB);
+							smfInsertControl(midiFile, regWriteMidiTime, 2, 2, 53, wavetableIndexLSB);
+							
 							prevWavetableIndex = wavetableIndex;
 						}
 					}
