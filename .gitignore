@@ -9,3 +9,5 @@ gbsplay
 bin/
 backup/
 temp/
+# gui is currently a work in progress.
+gui/

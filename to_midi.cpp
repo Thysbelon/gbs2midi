@@ -36,14 +36,11 @@ Above all, we should avoid a situation where one note accidentally lasts the len
 #include <cstdio>
 #include <vector>
 #include <cmath>
-#include <set>
 #include <array>
-#include <tuple>
 #include <cstring>
-#include <variant>
 #include <algorithm> // std::find
-#include <map>
 #include <chrono> // for measuring performance
+#include <utility>
 
 #include "gb_chip_state.hpp"
 #include "libsmfc.h"
@@ -51,12 +48,60 @@ Above all, we should avoid a situation where one note accidentally lasts the len
 
 #include "to_midi.hpp"
 
+#define SMF_EVENT_CONTROL       0xb0
+#define SMF_EVENT_PITCHBEND     0xe0
+
 std::vector<uint8_t> NOISE_PITCH_LIST; // this variable is global so that all functions can access it without me needing to pass it in.
 uint64_t midiTicksPerSoundLenTick = 1;
 std::vector<gb_reg_write>* songDataPointer;
 int* regWriteIpointer;
 unsigned int* gbTimeUnitsPerSecondPointer;
 const uint64_t* midiTicksPerSecondPointer;
+
+/*
+static bool smfOverwriteControl(Smf* seq, int time, int channel, int track, int controlNumber, int value){ // a wrapper around smfInsertControl that checks if the last event in the track has the same type and time as the event currently being inserted, and overwrites it if true.
+	SmfEvent* lastEvPointer = seq->track[track]->lastEvent;
+	int lastEvTime = lastEvPointer->time;
+	int lastEvType = lastEvPointer->data[0] & 0xF0;
+	int lastEvChannel = lastEvPointer->data[0] & 0x0F;
+	int lastEvControlNumber = lastEvPointer->data[1];
+	if(lastEvType == SMF_EVENT_CONTROL && lastEvTime == time && lastEvChannel == channel && lastEvControlNumber == controlNumber){
+		smfEventDelete(lastEvPointer);
+	}
+	return smfInsertControl(seq, time, channel, track, controlNumber, value);
+}
+*/
+
+// static bool smfOverwritePitchBend(Smf* seq, int time, int channel, int track, int value){ // a wrapper around smfInsertPitchBend that checks if the last event in the track has the same type and *similar* time as the event currently being inserted, and overwrites it if true. Most useful when using a low PPQN, such as 100.
+// 	
+// 	//if (seq!=nullptr && seq->track!=nullptr && seq->track[track] != nullptr && seq->track[track]->lastEvent != nullptr && seq->track[track]->lastEvent->prevEvent!=nullptr){}
+// 	if (seq==nullptr){
+// 		return smfInsertPitchBend(seq, time, channel, track, value);
+// 	} else if (seq->track==nullptr){
+// 		return smfInsertPitchBend(seq, time, channel, track, value);
+// 	} else if (seq->track[track] == nullptr) {
+// 		return smfInsertPitchBend(seq, time, channel, track, value);
+// 	} else if (seq->track[track]->lastEvent == nullptr) {
+// 		return smfInsertPitchBend(seq, time, channel, track, value);
+// 	} else if (seq->track[track]->lastEvent->prevEvent==nullptr) {
+// 		return smfInsertPitchBend(seq, time, channel, track, value);
+// 	}
+// 	SmfEvent* lastEvPointer = seq->track[track]->lastEvent->prevEvent;
+// 	int lastEvTime = lastEvPointer->time;
+// 	int lastEvType = lastEvPointer->data[0] & 0xF0;
+// 	int lastEvChannel = lastEvPointer->data[0] & 0x0F;
+// 	const int QUANTIZED_PPQN = 50;
+// 	uint64_t lastEvTimeQuantized = llround(((double)lastEvTime / *midiTicksPerSecondPointer)/*time in seconds*/ * QUANTIZED_PPQN); // quantize times to 100 ppqn then compare those times.
+// 	uint64_t timeQuantized = llround(((double)time / *midiTicksPerSecondPointer) * QUANTIZED_PPQN);
+// 	if(lastEvType == SMF_EVENT_PITCHBEND && lastEvTime <= time && lastEvTimeQuantized == timeQuantized && lastEvChannel == channel){
+// 		printf("previous event deleted. lastEvType: 0x%02X, lastEvTime: %d, lastEvChannel: %d, lastEvTimeQuantized: %lu, timeQuantized: %lu.\n", lastEvType, lastEvTime, lastEvChannel, lastEvTimeQuantized, timeQuantized);
+// 		smfEventDelete(lastEvPointer); // This isn't working. It always segfaults eventually. I think I need to use a different Midi writing library...
+// 	} else {
+// 		printf("previous event not deleted. lastEvType: 0x%02X, lastEvTime: %d, lastEvChannel: %d, lastEvTimeQuantized: %lu, timeQuantized: %lu.\n", lastEvType, lastEvTime, lastEvChannel, lastEvTimeQuantized, timeQuantized);
+// 	}
+// 
+// 	return smfInsertPitchBend(seq, time, channel, track, value);
+// }
 
 static uint64_t gbTime2midiTime(uint64_t gbTime /*timestamp relative to start of song*/, unsigned int gbTimeUnitsPerSecond, const uint64_t midiTicksPerSecond){
 	double gbTimeInSeconds = gbTime / (double)gbTimeUnitsPerSecond;
@@ -319,7 +364,7 @@ static void handlePanning(gb_chip_state* curAPUstate, const uint8_t inRegWriteVa
 		channelPointerVector[i]->panning = std::make_pair(panningRegVal, true);
 	}
 }
-bool songData2midi(std::vector<gb_reg_write>& songData, unsigned int gbTimeUnitsPerSecond, std::string outfilename){
+bool songData2midi(std::vector<gb_reg_write>& songData, unsigned int gbTimeUnitsPerSecond, std::string outfilename, int inPPQN){
 	auto start = std::chrono::high_resolution_clock::now();
 	
 	std::vector<uint8_t> tempNoisePitchList;
@@ -334,7 +379,9 @@ bool songData2midi(std::vector<gb_reg_write>& songData, unsigned int gbTimeUnits
 	
 	const int SECONDS_IN_A_MINUTE=60;
 	const int MIDI_BPM=120;
-	const int MIDI_PPQN=0x7fff;
+	//const double DENSITY_ADJUST = 1; // ((double)1/(32));
+	//const int MIDI_PPQN = round((double)0x7fff * DENSITY_ADJUST);
+	const int MIDI_PPQN = inPPQN ? inPPQN : 0x7fff;
 	//const int MIDI_PPQN=99;
 	Smf* midiFile = smfCreate();
 	smfSetTimebase(midiFile, MIDI_PPQN); // timebase should be high to make adjusting the song easy.
@@ -361,7 +408,7 @@ bool songData2midi(std::vector<gb_reg_write>& songData, unsigned int gbTimeUnits
 	uint16_t prevWavetableIndex = 0xFFFF;
 
 	uint64_t midiTicksPassed=0;
-	std::array<bool,4> isDACon={true,true,true,true};
+	//std::array<bool,4> isDACon={true,true,true,true};
 	std::array<uint64_t,4> scheduledSoundLenEndTime={0,0,0,0}; // time when a note's sound length should run out in midi ticks (relative to the start of the song)
 	for (int regWriteI=0; regWriteI<songData.size(); regWriteI++){
 		regWriteIpointer = &regWriteI;

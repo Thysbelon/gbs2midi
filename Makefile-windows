@@ -1,0 +1,18 @@
+CC=x86_64-w64-mingw32-gcc
+CPPC=x86_64-w64-mingw32-g++
+
+all: bin/gbs2midi
+
+bin/gbs2midi: main.cpp from_gbsplay.cpp to_midi.cpp libsmfc.o libsmfcx.o
+	$(CPPC) -I./libsmf/ -static -Wall -Wextra -o $@ $^
+
+libsmfc.o: libsmf/libsmfc.c
+	$(CC) -fpermissive -I./libsmf/ -c $^ -o $@ 
+
+libsmfcx.o: libsmf/libsmfcx.c
+	$(CC) -fpermissive -I./libsmf/ -c $^ -o $@ 
+
+clean:
+	rm *.o
+	rm gbs2midi
+	rm bin/gbs2midi

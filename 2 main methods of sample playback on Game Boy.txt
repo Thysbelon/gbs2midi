@@ -1,0 +1,10 @@
+https://en.wikipedia.org/wiki/Sampling_(music)
+https://en.wikipedia.org/wiki/Sampling_(signal_processing)   <-- Let's refer to this as a "frame" for clarity
+
+Seems like there are 2 main methods of sample playback on Game Boy
+
+1. wavetable PCM
+The method I expected to see. The current 32-frame wide waveform used by the wavetable channel is constantly swapped out; so fast that the separate 32-frame wide waveforms combine to form a single continuous sample. This method probably takes up a lot of space on the cartridge; it easily uses more than 127 waveforms. Because the samples are at a bit depth of 4, it sounds decently clear. Games that use this: Project S-11.
+
+2. wave channel volume modulation
+An unexpected method used by Pokemon Yellow. They probably did this to save space. Samples are played on the wave channel, but not by swapping out the current waveform. The current waveform is always a wave that consists of the value 0x0F repeated, making a single horizontal line. On its own, this horizontal line would be completely silent. The game produces sound by rapidly changing the volume of the wavetable channel to either 100% or 0%. By rapidly changing the volume, the game assembles an audible waveform. The samples are at a bit depth of 1, and sound very distorted as a result. The upside is that this low bit depth likely allowed the developers to save space on their samples; a neccessity for a big RPG.

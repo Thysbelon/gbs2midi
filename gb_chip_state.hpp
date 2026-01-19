@@ -4,17 +4,9 @@ This file contains the definition of the gb_chip_state class.
 #pragma once
 
 #include <cstdint>
-#include <string>
 #include <cstdio>
-#include <vector>
-#include <cmath>
-#include <set>
 #include <array>
-#include <tuple>
-#include <cstring>
-#include <variant>
-#include <algorithm> // std::find
-#include <map>
+#include <utility> // std::pair
 
 // https://gbdev.gg8.se/wiki/articles/Gameboy_sound_hardware
 // https://gbdev.gg8.se/wiki/articles/Sound_Controller

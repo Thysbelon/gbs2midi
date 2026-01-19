@@ -6,17 +6,7 @@ This file contains the code that converts gbsplay's output to gb_reg_write struc
 #include <string>
 #include <cstdio>
 #include <vector>
-#include <cmath>
-#include <set>
-#include <array>
-#include <tuple>
-#include <cstring>
-#include <variant>
-#include <algorithm> // std::find
-#include <map>
 #include <chrono> // for measuring performance
-
-#include "gb_reg_write.h"
 
 #include "from_gbsplay.hpp"
 
