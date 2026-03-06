@@ -1,7 +1,7 @@
 # gbs2midi
 Convert GBS (Game Boy music file) to midi files.
 
-Please see this [video for a demonstration of what gbs2midi is capable of](https://www.youtube.com/watch?v=nB5xkJSd_8M).
+Please see this [video on how to use gbs2midi to export then edit music from a Game Boy game](https://www.youtube.com/watch?v=nB5xkJSd_8M).
 
 The gbsplay executable must be in the same folder as the gbs2midi executable for the program to work.
 
