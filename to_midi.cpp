@@ -155,7 +155,7 @@ static std::pair<int, int> gbPitch2noteAndPitch(uint16_t gbPitch){ // https://ww
 	
 	return std::make_pair(note, pitchAdjust);
 }
-static void insertNoteIntoMidi(const uint8_t newNote, const uint8_t channel, std::array<uint8_t,4>& curPlayingMidiNote, const uint64_t& regWriteMidiTime, Smf* midiFile, const uint16_t prevRegPitch){ // ends the currently playing note and inserts a new note.
+static void insertNoteIntoMidi(const uint8_t newNote, const uint8_t channel, std::array<uint8_t,4>& curPlayingMidiNote, const uint64_t& regWriteMidiTime, Smf* midiFile, const uint16_t prevRegPitch, bool& chanLegato){ // ends the currently playing note and inserts a new note.
 	int tempCheckAddress = channel*0x5 + 0x10;
 	bool doNotInsertNote = false;
 	for (int i = (*regWriteIpointer) + 1; i < songDataPointer->size(); i++){ // if any of the upcoming regWrites both happen at the same time as this one AND would also cause a note to be inserted, don't do anything yet. This is necessary in order to prevent accidentally inserting long, overlapping notes into the midi. BUG: because this only keeps certain notes, this has produced a new bug where sometimes the "wrong" notes will be preserved and the song sounds off. HOWEVER, this only seems to be an issue when the PPQN is low.
@@ -197,10 +197,11 @@ static void insertNoteIntoMidi(const uint8_t newNote, const uint8_t channel, std
 	if (doNotInsertNote == false) {
 		if (curPlayingMidiNote[channel] != 0xFF){ // a note is playing
 			// end the currently playing note
-			smfInsertNoteOff(midiFile, regWriteMidiTime, channel, channel, curPlayingMidiNote[channel], 0x7F);
+			smfInsertNoteOff(midiFile, chanLegato && channel != 2 ? regWriteMidiTime + ((*midiTicksPerSecondPointer) / 1000) : regWriteMidiTime, channel, channel, curPlayingMidiNote[channel], 0x7F);
 		}
 		// insert new note
-		smfInsertNoteOn(midiFile, regWriteMidiTime, channel, channel, newNote, 0x7F);
+		const uint8_t velocity = chanLegato && channel != 2 ? 43 : 0x7F;
+		smfInsertNoteOn(midiFile, regWriteMidiTime, channel, channel, newNote, velocity);
 		curPlayingMidiNote[channel] = newNote; // a new note has started. Put it in the array to keep track of it.
 		//if (channel == 2) printf("regWriteMidiTime: %lu. nextRegWriteMidiTime: %lu. nextRegWriteMidiTime == regWriteMidiTime: %d. nextRegAddress: 0x%02X\n", regWriteMidiTime, nextRegWriteMidiTime, nextRegWriteMidiTime == regWriteMidiTime, nextRegAddress);
 	}
@@ -265,10 +266,10 @@ static void handlePitchBend(uint16_t curRegPitch, uint16_t prevRegPitch, bool is
 			smfInsertPitchBend(midiFile, regWriteMidiTime, channel, channel, noteAndPitchAdjust.second);
 			int prevMidiNote = curPlayingMidiNote[channel]; // TODO: just pass curPlayingMidiNote[channel] as an argument (as a modifiable reference), instead of passing the whole array?
 			if (noteAndPitchAdjust.first != prevMidiNote) {
-				insertNoteIntoMidi(noteAndPitchAdjust.first, channel, curPlayingMidiNote, regWriteMidiTime, midiFile, prevRegPitch);
+				insertNoteIntoMidi(noteAndPitchAdjust.first, channel, curPlayingMidiNote, regWriteMidiTime, midiFile, prevRegPitch, chanLegato);
 				//printf("noteAndPitchAdjust.first == curPlayingMidiNote[channel]: %d\n", noteAndPitchAdjust.first == curPlayingMidiNote[channel]); // after insertNoteIntoMidi() runs, these should be equal
 				if (chanLegato==false) {
-					smfInsertControl(midiFile, regWriteMidiTime, channel, channel, 68, 0x7F);
+					//smfInsertControl(midiFile, regWriteMidiTime, channel, channel, 68, 0x7F);
 					chanLegato=true;
 				}
 			}
@@ -310,7 +311,7 @@ static void handlePitchMSBtriggerSoundLenEnable(const uint8_t inRegWriteVal, gb_
 		}
 		
 		if (chanLegato==true) {
-			smfInsertControl(midiFile, regWriteMidiTime, channel, channel, 68, 0);
+			//smfInsertControl(midiFile, regWriteMidiTime, channel, channel, 68, 0);
 			chanLegato=false;
 		}
 		// end previous note
@@ -327,7 +328,7 @@ static void handlePitchMSBtriggerSoundLenEnable(const uint8_t inRegWriteVal, gb_
 			note = noisePitch2note((uint8_t)curRegPitch);
 			prevRegPitch = curRegPitch;
 		}
-		insertNoteIntoMidi(note, channel, curPlayingMidiNote, regWriteMidiTime, midiFile, prevRegPitch);
+		insertNoteIntoMidi(note, channel, curPlayingMidiNote, regWriteMidiTime, midiFile, prevRegPitch, chanLegato);
 	} else {
 		if (channel!=3) {
 			uint16_t prevRegPitch = dynamic_cast<gb_chip_state::melodic_channels*>(chanState)->getPitch();
@@ -589,7 +590,7 @@ bool songData2midi(std::vector<gb_reg_write>& songData, unsigned int gbTimeUnits
 		if (regWriteMidiTime > midiTicksPassed) midiTicksPassed = regWriteMidiTime;
 	}
 	// add wavetables to midi.
-	unsigned int sysexDataSize = 2 /* start and end bytes */ + 32 * uniqueWavetables.size();
+	const unsigned int sysexDataSize = 2 /* start and end bytes */ + 32 * uniqueWavetables.size();
 	uint8_t sysexData[sysexDataSize];
 	sysexData[0]=0xF0;
 	unsigned int sysexWaveIndex=0;

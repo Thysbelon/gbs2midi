@@ -13,6 +13,6 @@ libsmfcx.o: libsmf/libsmfcx.c
 	$(CC) -I./libsmf/ -c $^ -o $@ 
 
 clean:
-	rm *.o
-	rm gbs2midi
-	rm bin/gbs2midi
+	-rm *.o
+	-rm gbs2midi
+	-rm bin/gbs2midi
