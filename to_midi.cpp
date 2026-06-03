@@ -226,16 +226,19 @@ static uint8_t extractBitValueFromByte(const uint8_t inByte, uint8_t startBit, u
 	outVal = outVal >> endBit;
 	return outVal;
 }
-static uint8_t convertValToMidiCCrange(uint8_t inVal, uint8_t inValMax){
+static uint8_t convertValToMidiCCrange(uint8_t inVal, uint8_t inValMax, bool doInvert = false){
 	const uint8_t MIDI_CC_MAX = 0x7F;
-	return (uint8_t)round((float)MIDI_CC_MAX * ((float)inVal / inValMax));
+	uint8_t output = (uint8_t)round((float)MIDI_CC_MAX * ((float)inVal / inValMax));
+	if (doInvert)
+		output = MIDI_CC_MAX - output;
+	return output;
 }
-static void handleCommonRegWrite(const uint8_t inRegWriteVal, std::vector<std::pair<uint8_t, bool>*> propertyVector, const std::vector<std::pair<uint8_t, uint8_t>> bitRangeVector, const std::vector<uint8_t> midiCCvector, const uint8_t channel, const uint64_t& regWriteMidiTime, Smf* midiFile){
+static void handleCommonRegWrite(const uint8_t inRegWriteVal, std::vector<std::pair<uint8_t, bool>*> propertyVector, const std::vector<std::pair<uint8_t, uint8_t>> bitRangeVector, const std::vector<uint8_t> midiCCvector, const uint8_t channel, const uint64_t& regWriteMidiTime, Smf* midiFile, const std::vector<bool> invertVector = {}){
 	for (int i=0; i<midiCCvector.size(); i++){ // all the vectors should be the same size
 		uint8_t regBitVal = extractBitValueFromByte(inRegWriteVal, bitRangeVector[i].first, bitRangeVector[i].second);
 		uint8_t regBitValMax = extractBitValueFromByte(0xFF, bitRangeVector[i].first, bitRangeVector[i].second);
 		if ((*(propertyVector[i])).first != regBitVal || (*(propertyVector[i])).second == false)
-			smfInsertControl(midiFile, regWriteMidiTime, channel, channel, midiCCvector[i], convertValToMidiCCrange(regBitVal, regBitValMax));
+			smfInsertControl(midiFile, regWriteMidiTime, channel, channel, midiCCvector[i], convertValToMidiCCrange(regBitVal, regBitValMax, invertVector.size() == midiCCvector.size() ? invertVector[i] : false));
 		*(propertyVector[i]) = std::make_pair(regBitVal, true); // change the value that is pointed to. Write the new value to the APU state
 	}
 }
@@ -439,12 +442,14 @@ bool songData2midi(std::vector<gb_reg_write>& songData, unsigned int gbTimeUnits
 		}
 		
 		switch (registerIndex){
-			case 0xff10: // square 1
+			case 0xff10:{ // square 1
 				propertyVector = {&(curAPUstate.gb_square1_state.sweep_speed), &(curAPUstate.gb_square1_state.sweep_up_or_down), &(curAPUstate.gb_square1_state.sweep_shift)};
 				bitRangeVector = {std::make_pair(6,4), std::make_pair(3,3), std::make_pair(2,0)};
 				midiCCvector = {16, 18, 17};
-				handleCommonRegWrite(registerValue, propertyVector, bitRangeVector, midiCCvector, channel, regWriteMidiTime, midiFile); // handles simple regValue -> midi CC conversions
+				std::vector<bool> invertVector = {false, true, false};
+				handleCommonRegWrite(registerValue, propertyVector, bitRangeVector, midiCCvector, channel, regWriteMidiTime, midiFile, invertVector); // handles simple regValue -> midi CC conversions
 				break;
+			}
 			case 0xff11:
 				handleSqDutyAndSoundLen(registerValue, &(curAPUstate.gb_square1_state), channel, regWriteMidiTime, midiFile); 
 				break;
