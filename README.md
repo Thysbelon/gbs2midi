@@ -28,6 +28,14 @@ If, when editing the song, you notice that notes right next to eachother seem to
 
 [Please do not attempt to use FL Studio to edit the midi files output by gbs2midi](https://gist.github.com/Thysbelon/a69da7038e65023a29168d9ef449acda).
 
+## Developer Info
+
+Please use the Makefile to compile.
+
+Compilation has only been tested on Ubuntu 24.04.4 LTS.
+
+Please use Makefile-windows and [llvm-mingw](https://github.com/mstorsjo/llvm-mingw) to cross-compile to Windows. [llvm-mingw-20250114-msvcrt-ubuntu-20.04-x86_64](https://github.com/mstorsjo/llvm-mingw/releases/tag/20250114) is the only version that has been tested.
+
 ## Credits
 - This program uses [gbsplay](https://github.com/mmitch/gbsplay) to convert GBS files to a list of sound chip register writes, which my program then converts to a midi file.
 - [libsmf from sseq2mid](https://github.com/Thysbelon/sseq2mid), originally written by [loveemu](https://github.com/loveemu/loveemu-lab/tree/master/nds/sseq2mid/src).
