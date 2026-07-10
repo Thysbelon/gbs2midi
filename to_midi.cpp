@@ -197,11 +197,11 @@ static void insertNoteIntoMidi(const uint8_t newNote, const uint8_t channel, std
 	if (doNotInsertNote == false) {
 		if (curPlayingMidiNote[channel] != 0xFF){ // a note is playing
 			// end the currently playing note
-			smfInsertNoteOff(midiFile, chanLegato && channel != 2 ? regWriteMidiTime + ((*midiTicksPerSecondPointer) / 1000) : regWriteMidiTime, channel, channel, curPlayingMidiNote[channel], 0x7F);
+			smfInsertNoteOff(midiFile, chanLegato && channel != 2 ? regWriteMidiTime + ((*midiTicksPerSecondPointer) / 1000) : regWriteMidiTime, channel, channel+1, curPlayingMidiNote[channel], 0x7F);
 		}
 		// insert new note
 		const uint8_t velocity = chanLegato && channel != 2 ? 43 : 0x7F;
-		smfInsertNoteOn(midiFile, regWriteMidiTime, channel, channel, newNote, velocity);
+		smfInsertNoteOn(midiFile, regWriteMidiTime, channel, channel+1, newNote, velocity);
 		curPlayingMidiNote[channel] = newNote; // a new note has started. Put it in the array to keep track of it.
 		//if (channel == 2) printf("regWriteMidiTime: %lu. nextRegWriteMidiTime: %lu. nextRegWriteMidiTime == regWriteMidiTime: %d. nextRegAddress: 0x%02X\n", regWriteMidiTime, nextRegWriteMidiTime, nextRegWriteMidiTime == regWriteMidiTime, nextRegAddress);
 	}
@@ -238,7 +238,7 @@ static void handleCommonRegWrite(const uint8_t inRegWriteVal, std::vector<std::p
 		uint8_t regBitVal = extractBitValueFromByte(inRegWriteVal, bitRangeVector[i].first, bitRangeVector[i].second);
 		uint8_t regBitValMax = extractBitValueFromByte(0xFF, bitRangeVector[i].first, bitRangeVector[i].second);
 		if ((*(propertyVector[i])).first != regBitVal || (*(propertyVector[i])).second == false)
-			smfInsertControl(midiFile, regWriteMidiTime, channel, channel, midiCCvector[i], convertValToMidiCCrange(regBitVal, regBitValMax, invertVector.size() == midiCCvector.size() ? invertVector[i] : false));
+			smfInsertControl(midiFile, regWriteMidiTime, channel, channel+1, midiCCvector[i], convertValToMidiCCrange(regBitVal, regBitValMax, invertVector.size() == midiCCvector.size() ? invertVector[i] : false));
 		*(propertyVector[i]) = std::make_pair(regBitVal, true); // change the value that is pointed to. Write the new value to the APU state
 	}
 }
@@ -266,7 +266,7 @@ static void handlePitchBend(uint16_t curRegPitch, uint16_t prevRegPitch, bool is
 			// calculate note and pitchAdjust
 			std::pair<int, int> noteAndPitchAdjust = gbPitch2noteAndPitch(curRegPitch);
 			// insert pitch bend
-			smfInsertPitchBend(midiFile, regWriteMidiTime, channel, channel, noteAndPitchAdjust.second);
+			smfInsertPitchBend(midiFile, regWriteMidiTime, channel, channel+1, noteAndPitchAdjust.second);
 			int prevMidiNote = curPlayingMidiNote[channel]; // TODO: just pass curPlayingMidiNote[channel] as an argument (as a modifiable reference), instead of passing the whole array?
 			if (noteAndPitchAdjust.first != prevMidiNote) {
 				insertNoteIntoMidi(noteAndPitchAdjust.first, channel, curPlayingMidiNote, regWriteMidiTime, midiFile, prevRegPitch, chanLegato);
@@ -324,7 +324,7 @@ static void handlePitchMSBtriggerSoundLenEnable(const uint8_t inRegWriteVal, gb_
 		if (channel!=3) {
 			std::pair<int, int> noteAndPitchAdjust;
 			noteAndPitchAdjust = gbPitch2noteAndPitch(curRegPitch);
-			smfInsertPitchBend(midiFile, regWriteMidiTime, channel, channel, noteAndPitchAdjust.second);
+			smfInsertPitchBend(midiFile, regWriteMidiTime, channel, channel+1, noteAndPitchAdjust.second);
 			note = noteAndPitchAdjust.first;
 			prevRegPitch = dynamic_cast<gb_chip_state::melodic_channels*>(chanState)->getPitch();
 		} else {
@@ -346,10 +346,10 @@ static void handlePanning(gb_chip_state* curAPUstate, const uint8_t inRegWriteVa
 		uint8_t panningRegVal = ((inRegWriteVal >> (3+i)) & 0b10) | ((inRegWriteVal >> i) & 0b01);
 		if (panningRegVal != channelPointerVector[i]->panning.first || channelPointerVector[i]->panning.second == false) {
 			if (panningRegVal == 0) {
-				smfInsertControl(midiFile, regWriteMidiTime, i, i, 9, 0x7F); // pan mute on
+				smfInsertControl(midiFile, regWriteMidiTime, i, i+1, 9, 0x7F); // pan mute on
 			} else if (panningRegVal != 0) {
 				if (channelPointerVector[i]->panning.first == 0 || channelPointerVector[i]->panning.second == false)
-					smfInsertControl(midiFile, regWriteMidiTime, i, i, 9, 0); // pan mute off
+					smfInsertControl(midiFile, regWriteMidiTime, i, i+1, 9, 0); // pan mute off
 				uint8_t midiPan=0;
 				switch (panningRegVal){
 					case 0b01:
@@ -362,7 +362,7 @@ static void handlePanning(gb_chip_state* curAPUstate, const uint8_t inRegWriteVa
 						midiPan=64;
 						break;
 				}
-				smfInsertControl(midiFile, regWriteMidiTime, i, i, SMF_CONTROL_PANPOT, midiPan);
+				smfInsertControl(midiFile, regWriteMidiTime, i, i+1, SMF_CONTROL_PANPOT, midiPan);
 			}
 		}
 		channelPointerVector[i]->panning = std::make_pair(panningRegVal, true);
@@ -403,6 +403,11 @@ bool songData2midi(std::vector<gb_reg_write>& songData, unsigned int gbTimeUnits
 	//	smfInsertControl(midiFile, 0, i, i, SMF_CONTROL_VOLUME, 0); // prevent garbage noise from playing
 	//}
 		
+	// Insert GB_DMG initialization sysex for Thaumoc. This will be ignored by Nelly GB, so it doesn't break compatibility
+	uint8_t thaumocSysex[] = {0xF0, 0x00, 0x43, 0x16, 0x08, 0x13, 0x00, 0xF7};
+	bool result = smfInsertSysex(midiFile, 0 /* time */, 0 /* port */, 1 /* track */, thaumocSysex, 8);
+	printf("result: %d\n", result);
+	
 	gb_chip_state curAPUstate; // whenever a register write is encountered, it will converted to a midi event and then written here. Used to compare the current register write to the previous state.
 	
 	std::array<uint8_t,4> curPlayingMidiNote = {0xFF, 0xFF, 0xFF, 0xFF}; // The note number of the midi note that is currently playing. One entry for each channel. Used to end the current note, whatever it is. 0xFF means no notes are currently playing.
@@ -435,7 +440,7 @@ bool songData2midi(std::vector<gb_reg_write>& songData, unsigned int gbTimeUnits
 		for (int i=0; i<4; i++){
 			if (scheduledSoundLenEndTime[i] <= regWriteMidiTime && propertyVector[i]->first == true){
 				if (curPlayingMidiNote[i]!=0xFF) {
-					smfInsertNoteOff(midiFile, regWriteMidiTime, i, i, curPlayingMidiNote[i], 0x7F);
+					smfInsertNoteOff(midiFile, regWriteMidiTime, i, i+1, curPlayingMidiNote[i], 0x7F);
 					curPlayingMidiNote[i] = 0xFF;
 				}
 			}
@@ -496,8 +501,8 @@ bool songData2midi(std::vector<gb_reg_write>& songData, unsigned int gbTimeUnits
 							printf("wavetableIndexMSB: %04X\n", wavetableIndexMSB);
 							printf("wavetableIndexLSB: %04X\n", wavetableIndexLSB);
 							*/
-							smfInsertControl(midiFile, regWriteMidiTime, 2, 2, 21, wavetableIndexMSB);
-							smfInsertControl(midiFile, regWriteMidiTime, 2, 2, 53, wavetableIndexLSB);
+							smfInsertControl(midiFile, regWriteMidiTime, 2, 2+1, 21, wavetableIndexMSB);
+							smfInsertControl(midiFile, regWriteMidiTime, 2, 2+1, 53, wavetableIndexLSB);
 							
 							prevWavetableIndex = wavetableIndex;
 						}
@@ -532,7 +537,7 @@ bool songData2midi(std::vector<gb_reg_write>& songData, unsigned int gbTimeUnits
 							default:
 								break;
 						}
-						smfInsertControl(midiFile, regWriteMidiTime, channel, channel, SMF_CONTROL_VOLUME, midiWaveVol);
+						smfInsertControl(midiFile, regWriteMidiTime, channel, channel+1 /*track 0 is reserved for the tempo map*/, SMF_CONTROL_VOLUME, midiWaveVol);
 					}
 					curAPUstate.gb_wave_state.volume = std::make_pair(curWaveVol, true);
 				}
@@ -611,7 +616,7 @@ bool songData2midi(std::vector<gb_reg_write>& songData, unsigned int gbTimeUnits
 		sysexWaveIndex++;
 	}
 	sysexData[sysexDataSize-1]=0xF7;
-	smfInsertSysex(midiFile, 0 /* time */, 0 /* port */, 2 /* wave track */, sysexData, sysexDataSize);
+	smfInsertSysex(midiFile, 0 /* time */, 0 /* port */, 3 /* wave track */, sysexData, sysexDataSize);
 	
 	/*
 	for (std::array<uint8_t,32> curWavetable : uniqueWavetables) {
@@ -622,10 +627,10 @@ bool songData2midi(std::vector<gb_reg_write>& songData, unsigned int gbTimeUnits
 	}
 	*/
 	
-	smfSetEndTimingOfTrack(midiFile, 0, midiTicksPassed);
 	smfSetEndTimingOfTrack(midiFile, 1, midiTicksPassed);
 	smfSetEndTimingOfTrack(midiFile, 2, midiTicksPassed);
 	smfSetEndTimingOfTrack(midiFile, 3, midiTicksPassed);
+	smfSetEndTimingOfTrack(midiFile, 4, midiTicksPassed);
 	smfWriteFile(midiFile, outfilename.c_str());
 	
 	auto stop = std::chrono::high_resolution_clock::now();
