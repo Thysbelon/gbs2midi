@@ -1,0 +1,60 @@
+name: Linux and Windows Build
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Install packages
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y tar
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+    - name: make
+      run: |
+        make -j 4
+        mkdir linux-release
+        cp bin/gbs2midi linux-release/
+        cp README.md linux-release/
+        cp LICENSE linux-release/
+    - name: Set outputs
+      id: vars
+      run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+    - name: Upload Linux build artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: gbs2midi-Linux-x86-${{steps.vars.outputs.sha_short}}.zip
+        path: linux-release/*
+    - name: Clean
+      run: |
+        rm -rf linux-release
+        make clean
+    - name: Download llvm-mingw
+      uses: dsaltares/fetch-gh-release-asset@master
+      with:
+        repo: 'mstorsjo/llvm-mingw'
+        version: 'tags/20250114' # later versions are untested
+        file: 'llvm-mingw-20250114-msvcrt-ubuntu-20.04-x86_64.tar.xz'
+        token: ${{ secrets.GITHUB_TOKEN }}
+    - name: make (Windows)
+      run: | 
+        tar -xf llvm-mingw-20250114-msvcrt-ubuntu-20.04-x86_64.tar.xz
+        export PATH=llvm-mingw-20250114-msvcrt-ubuntu-20.04-x86_64/bin:$PATH
+        make -f Makefile-windows -j 4
+        mkdir windows-release
+        cp bin/gbs2midi windows-release/
+        cp README.md windows-release/
+        cp LICENSE windows-release/
+    - name: Upload Windows build artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: gbs2midi-Windows-x86-${{steps.vars.outputs.sha_short}}.zip
+        path: windows-release/*
