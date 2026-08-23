@@ -50,7 +50,7 @@ jobs:
         export PATH=llvm-mingw-20250114-msvcrt-ubuntu-20.04-x86_64/bin:$PATH
         make -f Makefile-windows -j 4
         mkdir windows-release
-        cp bin/gbs2midi windows-release/
+        cp bin/gbs2midi.exe windows-release/
         cp README.md windows-release/
         cp LICENSE windows-release/
     - name: Upload Windows build artifact
